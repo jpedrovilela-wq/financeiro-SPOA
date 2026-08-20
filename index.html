@@ -1,41 +1,65 @@
+Exit code: 0
+Wall time: 0.3 seconds
+Output:
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Processador de Empenhos</title>
-    <link rel="stylesheet" href="styles.css" />
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-  </head>
-  <body>
-    <main class="card">
-      <span class="eyebrow">SNH/DPP/CGPOH/CORH</span>
-      <h1>Processador de Empenhos</h1>
-      <p class="lead">Envie a planilha, processe os empenhos e baixe uma cópia pronta. O arquivo é tratado somente neste navegador — não é enviado para nenhum servidor.</p>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Planilha de Financeiro Ã  SPOA | FNHIS Sub 50</title>
+  <meta name="description" content="GeraÃ§Ã£o local da Planilha de Financeiro Ã  SPOA para FNHIS Sub 50.">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <p class="eyebrow">SNH / DPP / CGPOH / CORH</p>
+      <h1>Planilha de Financeiro Ã  SPOA</h1>
+      <p class="intro">Envie as duas planilhas de origem. A aplicaÃ§Ã£o identifica os campos mesmo quando a ordem ou o texto do cabeÃ§alho varia e gera a planilha padronizada para a SPOA.</p>
+    </header>
 
-      <label class="upload" for="arquivo">
-        <input id="arquivo" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
-        <span id="nomeArquivo">Selecionar planilha Excel (.xlsx)</span>
-        <small>São necessárias as abas “ajustada CORH” e “SALDOS DE EMPENHO”.</small>
+    <section class="privacy" aria-label="Privacidade">
+      <strong>Processamento local.</strong> Os arquivos sÃ£o tratados somente no seu navegador e nÃ£o sÃ£o enviados para servidor.
+    </section>
+
+    <section class="uploads" aria-label="Arquivos necessÃ¡rios">
+      <label class="upload-card" for="dhrFile">
+        <span class="step">1</span>
+        <span class="upload-copy"><strong>Planilha de solicitaÃ§Ã£o de caixa do DHR</strong><small>Inclua instrumento/convÃªnio, proponente, UF e o valor autorizado ou solicitado.</small></span>
+        <span class="file-name" id="dhrName">Selecionar arquivo .xlsx</span>
+        <input id="dhrFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
       </label>
+      <label class="upload-card" for="siafiFile">
+        <span class="step">2</span>
+        <span class="upload-copy"><strong>Saldos de Empenho extraÃ­dos do SIAFI</strong><small>Inclua Nota de Empenho, Fonte, VinculaÃ§Ã£o e os saldos de empenho.</small></span>
+        <span class="file-name" id="siafiName">Selecionar arquivo .xlsx</span>
+        <input id="siafiFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+      </label>
+    </section>
 
-      <div class="actions">
-        <button id="processar" class="primary" disabled>Processar empenhos</button>
+    <fieldset class="year-filter">
+      <legend>A partir de qual ano considerar as Notas de Empenho?</legend>
+      <p>Para anos anteriores, usa-se Restos a Pagar; para o ano atual, Despesas Empenhadas a Liquidar.</p>
+      <div class="year-options">
+        <label><input type="radio" name="startYear" value="2026"> <span>2026</span></label>
+        <label><input type="radio" name="startYear" value="2025" checked> <span>2025</span></label>
+        <label><input type="radio" name="startYear" value="2024"> <span>2024</span></label>
+        <label><input type="radio" name="startYear" value="all"> <span>Todos</span></label>
       </div>
-      <p id="status" class="status" aria-live="polite">Selecione uma planilha para começar.</p>
+    </fieldset>
 
-      <details>
-        <summary>O que o processamento faz?</summary>
-        <ul>
-          <li>Relaciona os dados exclusivamente pelo número do contrato.</li>
-          <li>Prioriza empenhos de 2025 e depois os de 2026.</li>
-          <li>Cria a aba LOG para casos sem correspondência ou com saldo insuficiente.</li>
-          <li>No arquivo final, a coluna M contém o Valor distribuído e a coluna O preserva o Valor total do Contrato original.</li>
-          <li>As colunas O e P ficam ocultas; reexiba-as no Excel para consultar o Valor total do Contrato e o saldo remanescente da Nota de Empenho.</li>
-          <li>Após o download, você pode selecionar outro arquivo — inclusive o mesmo arquivo original — para iniciar um novo processamento.</li>
-        </ul>
-      </details>
-    </main>
-    <script src="app.js"></script>
-  </body>
+    <button id="processButton" class="primary" disabled>Gerar Planilha de Financeiro Ã  SPOA</button>
+    <p id="status" class="status" aria-live="polite">Anexe os dois arquivos para habilitar o processamento.</p>
+    <section id="details" class="details" hidden></section>
+
+    <details class="help">
+      <summary>Como os dados sÃ£o reconhecidos?</summary>
+      <p>A aplicaÃ§Ã£o procura sinÃ´nimos de cabeÃ§alhos, ignora acentos e pontuaÃ§Ã£o e valida o formato de valores, UF, propostas, contratos e notas de empenho. Para o contrato, prioriza o <em>ConvÃªnio SIAFI</em>. Para notas de anos anteriores usa Restos a Pagar; para notas do ano atual, Despesas Empenhadas a Liquidar.</p>
+    </details>
+  </main>
+  <script src="app.js"></script>
+</body>
 </html>
+
+

@@ -1,118 +1,95 @@
-/* Processamento local no navegador. Não há upload de arquivos. */
-const CORH = "ajustada CORH", SALDOS = "SALDOS DE EMPENHO", MARCADOR = "LINHA ACRESCENTADA +1 EMPENHO";
-const LINHA_CABECALHO_CORH = 0, LINHA_INICIO_CORH = 1, LINHA_INICIO_SALDOS = 6;
+Exit code: 0
+Wall time: 0.3 seconds
+Output:
+/* Processador local de SolicitaÃ§Ã£o de Financeiro SPOA. */
 const $ = (id) => document.getElementById(id);
-let arquivo;
+const FILES = { dhr: null, siafi: null };
+const OUT_HEADERS = ["Contrato","UF","Tomador","AÃ§Ã£o","Abreviatura","UG Emitente","UG Favorecida","Nota de Empenho","VinculaÃ§Ã£o","Fonte","Categoria","CompetÃªncia","Valor Original Total","RP","Saldo utilizado NE","Saldo remanescente NE"];
+const ALIASES = {
+  dhr: {
+    operacao:["operacao","operaÃ§Ã£o","operacao contrato","numero operacao"], dv:["dv","digito","dÃ­gito"], proposta:["proposta","proposta tgov","prop tgov","prop. tgov"], convenio:["convenio siafi","convÃªnio siafi","convenio","convÃªnio","numero instrumento","nÃºmero instrumento","n instrumento","no instrumento"], tomador:["tomador","beneficiario","beneficiÃ¡rio","nome proponente","proponente"], municipio:["municipio","municÃ­pio","municipio beneficiado","municÃ­pio beneficiado"], uf:["uf","estado"], necessidade:["valor necessidade financeira","necessidade financeira","valor solicitado","valor da solicitacao","valor da solicitaÃ§Ã£o","valor autorizado rp3","valor da parcela autorizado rp3","valor parcela autorizado rp3"], rp3:["saldo empenhado rp3","valor empenhado rp3","valor autorizado rp3","valor da parcela autorizado rp3"], empenhado:["valor empenhado rp2 e rp3","valor empenhado rp2 rp3","valor empenhado acumulado"]
+  },
+  siafi: {
+    convenio:["numero do convenio","nÃºmero do convÃªnio","numero convenio","nÃºmero convÃªnio","convenio siafi","convÃªnio siafi","informacao complementar","informaÃ§Ã£o complementar","ne ccor informacao complementar","ne ccor informaÃ§Ã£o complementar","ne cco informacao complementar"], info:["informacao complementar","informaÃ§Ã£o complementar"], nota:["nota de empenho","ne ccor","ne cco","ne ccor nota","ne cco nota","ne"], fonte:["fonte recursos detalhada","fonte de recursos detalhada","fonte"], vinculacao:["vinculacao provavel","vinculaÃ§Ã£o provÃ¡vel","vinculacao","vinculaÃ§Ã£o"], favorecido:["ne ccor favorecido","ne cco favorecido","favorecido","beneficiario","beneficiÃ¡rio","cnpj favorecido"], processo:["numero processo","nÃºmero processo","ne ccor num processo","ne ccor nÃºm processo","ne cco num processo","ne cco nÃºm processo","processo"], emp:["despesas empenhadas a liquidar controle emp","despesas empenhadas a liquidar","empenhadas a liquidar","30 despesas empenhadas a liquidar"], liq:["despesas liquidadas a pagar controle empenho","despesas liquidadas a pagar","liquidadas a pagar","32 despesas liquidadas a pagar"], rap:["restos a pagar a pagar proc e n proc","restos a pagar a pagar","restos a pagar","53 restos a pagar"]
+  }
+};
 
-$("arquivo").addEventListener("change", (e) => {
-  arquivo = e.target.files[0];
-  $("nomeArquivo").textContent = arquivo ? arquivo.name : "Selecionar planilha Excel (.xlsx)";
-  $("processar").disabled = !arquivo;
-  $("status").textContent = arquivo ? "Arquivo selecionado. Escolha uma operação." : "Selecione uma planilha para começar.";
-});
-$("processar").onclick = executar;
+function clean(v){return String(v ?? "").trim()}
+function norm(v){return clean(v).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]/g," ").replace(/\s+/g," ").trim()}
+function digits(v){return clean(v).replace(/\D/g,"")}
+function money(v){if(typeof v === "number"&&Number.isFinite(v)) return v; let s=clean(v).replace(/R\$/gi,"").replace(/\s/g,""); if(s.includes(",")&&s.includes("."))s=s.replace(/\./g,"").replace(",", ".");else s=s.replace(",", ".");return Number(s)||0}
+function excelRow(ws,r){const range=XLSX.utils.decode_range(ws["!ref"]||"A1:A1"), row=[];for(let c=0;c<=range.e.c;c++)row[c]=ws[XLSX.utils.encode_cell({r,c})]?.v;return row}
+function allRows(ws){const range=XLSX.utils.decode_range(ws["!ref"]||"A1:A1"), out=[];for(let r=0;r<=range.e.r;r++)out.push(excelRow(ws,r));return out}
+function scoreHeader(row, aliases){return row.reduce((score,value)=>{const h=norm(value);return score+Object.values(aliases).reduce((n,list)=>n+(list.some(a=>norm(a)===h)?1:0),0)},0)}
+function findTable(wb, kind){let best={score:-1};for(const name of wb.SheetNames){const ws=wb.Sheets[name], rows=allRows(ws);for(let r=0;r<Math.min(rows.length,30);r++){const nextScore=scoreHeader(rows[r+1]||[],ALIASES[kind]), headers=nextScore>0?rows[r].map((v,c)=>[v,rows[r+1]?.[c]].filter(x=>clean(x)).join(" ")):rows[r], score=scoreHeader(headers,ALIASES[kind]);if(score>best.score)best={score,name,header:r,headers,headerRows:nextScore>0?2:1,rows};}}if(best.score<2)throw new Error(`NÃ£o foi possÃ­vel localizar os cabeÃ§alhos da planilha ${kind==="dhr"?"do DHR":"do SIAFI"}. Confira se o arquivo contÃ©m a tabela indicada.`);return best}
+function mapHeaders(headers,aliases){const map={};for(const [key,list] of Object.entries(aliases)){let best={score:0,index:undefined};headers.forEach((value,index)=>{const h=norm(value);if(!h)return;for(const item of list){const alias=norm(item);let score=0;if(alias===h)score=1000+alias.length;else if(alias.length>=7&&h.includes(alias))score=alias.length;else if(h.length>=7&&alias.includes(h))score=h.length;if(score>best.score)best={score,index};}});if(best.index!==undefined)map[key]=best.index;}return map}
+function profileScore(values,test){const usable=values.filter(v=>clean(v)!=="");return usable.length?usable.filter(test).length/usable.length:0}
+function inferByProfile(map,headers,rows,key,test,minScore=.85){if(map[key]!==undefined)return;const occupied=new Set(Object.values(map));const options=headers.map((_,index)=>({index,score:profileScore(rows.map(row=>row[index]),test)})).filter(x=>!occupied.has(x.index)).sort((a,b)=>b.score-a.score);if(options[0]&&options[0].score>=minScore&&(!options[1]||options[0].score-options[1].score>=.12))map[key]=options[0].index}
+function inferMappings(map,headers,rows,kind){const sample=rows.slice(0,Math.min(rows.length,80));const states=new Set(["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"]);if(kind==="dhr"){inferByProfile(map,headers,sample,"convenio",v=>/^9\d{5}$/.test(digits(v)));inferByProfile(map,headers,sample,"uf",v=>states.has(norm(v)));inferByProfile(map,headers,sample,"tomador",v=>/\b(MUNICIPIO|PREFEITURA|SECRETARIA|ESTADO)\b/.test(norm(v)));inferByProfile(map,headers,sample,"proposta",v=>{const d=digits(v);return d.length>=8&&d.length<=10&&/^20\d{2}$/.test(d.slice(-4))});const used=new Set(Object.values(map));const financial=headers.map((_,index)=>({index,score:profileScore(sample.map(row=>row[index]),v=>typeof v==="number"&&v>=1000)})).filter(x=>!used.has(x.index)&&x.score>=.85);if(map.necessidade===undefined&&financial.length===1)map.necessidade=financial[0].index}else{inferByProfile(map,headers,sample,"convenio",v=>/^9\d{5}$/.test(digits(v)));inferByProfile(map,headers,sample,"nota",v=>/(?:\d+)?20\d{2}\s*NE\s*\d{6}(?!\d)/i.test(clean(v)));inferByProfile(map,headers,sample,"fonte",v=>/^1\d{9}$/.test(digits(v)));inferByProfile(map,headers,sample,"vinculacao",v=>/^\d{3}$/.test(digits(v)));inferByProfile(map,headers,sample,"favorecido",v=>/\b(MUNICIPIO|PREFEITURA|SECRETARIA)\b/.test(norm(v)));inferByProfile(map,headers,sample,"processo",v=>{const d=digits(v);return d.length>=8&&d.length<=10&&/^20\d{2}$/.test(d.slice(-4))});const numeric=headers.map((_,index)=>({index,score:profileScore(sample.map(row=>row[index]),v=>typeof v==="number"&&v>=0)})).filter(x=>x.score>=.85&&x.index>=Math.max(0,headers.length-6)).sort((a,b)=>a.index-b.index);if(numeric.length>=3){if(map.emp===undefined)map.emp=numeric[numeric.length-3].index;if(map.liq===undefined)map.liq=numeric[numeric.length-2].index;if(map.rap===undefined)map.rap=numeric[numeric.length-1].index}}return map}
+function get(row,map,key){return map[key]===undefined?"":row[map[key]]}
+function dataRows(table){return table.rows.slice(table.header+table.headerRows).filter(r=>r.some(v=>clean(v)!==""))}
+function standardNE(v){const raw=clean(v).toUpperCase();const m=raw.match(/(20\d{2})\s*NE\s*(\d{6})(?!\d)/);return m?`${m[1]}NE${m[2]}`:raw.replace(/\s/g,"")}
+function neYear(note){const m=standardNE(note).match(/(20\d{2})NE/);return m?Number(m[1]):9999}
+function fonte(v){return clean(v)}
+function proposalKeys(v){const d=digits(v);if(!d)return[];const out=[d];if(d.length>=8)out.push(d.slice(0,5)+d.slice(-4));return [...new Set(out)]}
+function dhrKeys(item){const keys=new Set();for(const v of [item.convenio,item.proposta])for(const k of proposalKeys(v))keys.add(k);return [...keys].filter(k=>k.length>=5)}
+function beneficiaryMatch(dhr, ne){const targets=[norm(dhr.tomador),norm(dhr.municipio)].filter(x=>x.length>=5);const source=norm(ne.favorecido);return source.length>=5&&targets.some(t=>source.includes(t)||t.includes(source))}
+function contractMatch(dhr, ne){const convenio=digits(ne.convenio);return /^9\d{5}$/.test(convenio)&&!!dhr.convenioKey&&convenio===dhr.convenioKey}
+function processMatch(dhr, ne){const processo=digits(ne.processo);return dhr.propostaKey.length>=5&&processo===dhr.propostaKey}
+function selectCandidates(dhr, notes){
+  const byContract=notes.filter(n=>contractMatch(dhr,n));
+  if(byContract.length)return byContract;
+  const byProcess=notes.filter(n=>processMatch(dhr,n));
+  if(byProcess.length)return byProcess;
+  return notes.filter(n=>{
+    const hasContract=/^9\d{5}$/.test(digits(n.convenio));
+    const hasProcess=digits(n.processo).length>=8;
+    return !hasContract&&!hasProcess&&beneficiaryMatch(dhr,n);
+  });
+}
+function formatContract(dhr){return clean(dhr.convenio)||clean(dhr.proposta)}
+function orderCandidates(candidates, needed){
+  const groups=new Map();
+  for(const note of candidates){const year=neYear(note.nota);if(!groups.has(year))groups.set(year,[]);groups.get(year).push(note)}
+  const years=[...groups.keys()].sort((a,b)=>a-b);const ordered=[];let remaining=needed, exhaustedEarlierYear=false;
+  for(const year of years){const group=groups.get(year).slice();if(exhaustedEarlierYear)group.sort((a,b)=>a.saldo-b.saldo||a.ordem-b.ordem);ordered.push(...group);const total=group.reduce((sum,n)=>sum+n.saldo,0);if(remaining>total+.005){remaining-=total;exhaustedEarlierYear=true}else break;}
+  return ordered;
+}
+function outputName(siafiTable){const title=clean(siafiTable.rows[0]?.[0]);const m=title.match(/(\d{2})\D+(\d{2})\D+(\d{4})/);return m?`Planilha_de_Financeiro_a_SPOA_${m[1]}_${m[2]}_${m[3]}.xlsx`:"Planilha_de_Financeiro_a_SPOA.xlsx"}
+function selectedStartYear(){return document.querySelector('input[name="startYear"]:checked')?.value||"2025"}
+function makeStyle(header=false){return {font:{bold:header},fill:header?{patternType:"solid",fgColor:{rgb:"C8C8C8"}}:undefined,alignment:{horizontal:header?"center":"left",vertical:"center"},border:{top:{style:"thin",color:{rgb:"000000"}},bottom:{style:"thin",color:{rgb:"000000"}},left:{style:"thin",color:{rgb:"000000"}},right:{style:"thin",color:{rgb:"000000"}}}}}
+function styleTable(ws, headers, moneyColumns=[]){const range=XLSX.utils.decode_range(ws["!ref"]||"A1:A1");for(let c=0;c<=range.e.c;c++){const h=XLSX.utils.encode_cell({r:0,c});ws[h].s=makeStyle(true);ws["!cols"]=(ws["!cols"]||[]);ws["!cols"][c]={wch:Math.min(Math.max(String(headers[c]||"").length+3,13),28)};}for(let r=1;r<=range.e.r;r++)for(let c=0;c<=range.e.c;c++){const a=XLSX.utils.encode_cell({r,c});if(!ws[a])ws[a]={t:"s",v:""};ws[a].s=makeStyle(false);if(moneyColumns.includes(c))ws[a].z='#,##0.00';}}
+function styleSourceHeaders(ws, rows){const range=XLSX.utils.decode_range(ws["!ref"]||"A1:A1");for(const r of rows)for(let c=0;c<=range.e.c;c++){const a=XLSX.utils.encode_cell({r,c});if(ws[a])ws[a].s=makeStyle(true)}}
+function addLog(log, contract, tomador, value, keys, reason){log.push([contract,tomador,value,keys,reason])}
+function friendlyKeys(req){const keys=[];if(req.convenioKey)keys.push(`instrumento ${formatContract(req)}`);if(req.propostaKey)keys.push(`proposta ${clean(req.proposta)}`);if(clean(req.tomador))keys.push(`proponente ${clean(req.tomador)}`);if(clean(req.municipio))keys.push(`municÃ­pio ${clean(req.municipio)}`);return keys.join("; ")||"sem chave identificÃ¡vel"}
+function favouredName(row,map){const primary=clean(get(row,map,"favorecido"));const index=map.favorecido;if(index===undefined)return primary;const next=clean(row[index+1]);return /^\d{11,14}$/.test(digits(primary))&&next?next:primary}
 
-function txt(v) { return v == null ? "" : String(v).trim(); }
-function num(v) {
-  if (typeof v === "number") return v;
-  let s = txt(v).replace("R$", "").replace(/\s/g, "");
-  if (s.includes(",") && s.includes(".")) s = s.replace(/\./g, "").replace(",", "."); else s = s.replace(",", ".");
-  return Number(s) || 0;
-}
-function anoNota(nota) { const a = nota.length >= 15 ? Number(nota.slice(11, 15)) : 2020; return a >= 2000 && a <= 2100 ? a : 2020; }
-function cell(ws, r, c) { return ws[XLSX.utils.encode_cell({r, c})]; }
-function valor(ws, r, c) { return cell(ws, r, c)?.v; }
-function set(ws, r, c, v, fmt) { const a = XLSX.utils.encode_cell({r, c}); ws[a] = { ...(ws[a] || {}), t: typeof v === "number" ? "n" : "s", v }; if (fmt) ws[a].z = fmt; expandir(ws, r, c); }
-function ref(ws) { return XLSX.utils.decode_range(ws["!ref"] || "A1:A1"); }
-function expandir(ws, r, c) { const x = ref(ws); x.e.r = Math.max(x.e.r, r); x.e.c = Math.max(x.e.c, c); ws["!ref"] = XLSX.utils.encode_range(x); }
-function clonar(obj) { return obj ? JSON.parse(JSON.stringify(obj)) : undefined; }
-const BORDA_FINA = { style: "thin", color: { rgb: "000000" } };
-function estilizarCabecalho(ws, linha) {
-  const area = ref(ws);
-  for (let c = 0; c <= area.e.c; c++) {
-    const chave = XLSX.utils.encode_cell({ r: linha, c });
-    if (!ws[chave]) ws[chave] = { t: "s", v: "" };
-    ws[chave].s = {
-      ...(ws[chave].s || {}),
-      fill: { patternType: "solid", fgColor: { rgb: "C8C8C8" } },
-      font: { ...((ws[chave].s || {}).font || {}), bold: true },
-      alignment: { horizontal: "center", vertical: "center" },
-      border: { top: BORDA_FINA, bottom: BORDA_FINA, left: BORDA_FINA, right: BORDA_FINA }
-    };
+async function process(){
+  const dhrBook=XLSX.read(await FILES.dhr.arrayBuffer(),{type:"array",raw:true,cellStyles:true});
+  const siafiBook=XLSX.read(await FILES.siafi.arrayBuffer(),{type:"array",raw:true,cellStyles:true});
+  const dhrTable=findTable(dhrBook,"dhr"), siafiTable=findTable(siafiBook,"siafi");
+  const dhrMap=inferMappings(mapHeaders(dhrTable.headers,ALIASES.dhr),dhrTable.headers,dhrTable.rows.slice(dhrTable.header+dhrTable.headerRows),"dhr"), siafiMap=inferMappings(mapHeaders(siafiTable.headers,ALIASES.siafi),siafiTable.headers,siafiTable.rows.slice(siafiTable.header+siafiTable.headerRows),"siafi");
+  for(const required of ["convenio","tomador","uf","necessidade"])if(dhrMap[required]===undefined)throw new Error(`A coluna indispensÃ¡vel '${required}' nÃ£o foi reconhecida na planilha do DHR.`);
+  for(const required of ["nota","fonte","emp","rap"])if(siafiMap[required]===undefined)throw new Error(`A coluna indispensÃ¡vel '${required}' nÃ£o foi reconhecida na planilha do SIAFI.`);
+  const requests=dhrTable.rows.slice(dhrTable.header+dhrTable.headerRows).filter(r=>r.some(v=>clean(v)!=="")).map(r=>{const item={operacao:get(r,dhrMap,"operacao"),dv:get(r,dhrMap,"dv"),proposta:get(r,dhrMap,"proposta"),convenio:get(r,dhrMap,"convenio"),tomador:get(r,dhrMap,"tomador"),municipio:get(r,dhrMap,"municipio"),uf:get(r,dhrMap,"uf"),valor:money(get(r,dhrMap,"necessidade")),rp3:money(get(r,dhrMap,"rp3")),empenhado:money(get(r,dhrMap,"empenhado"))};item.convenioKey=digits(item.convenio);item.propostaKey=digits(item.proposta);item.keys=dhrKeys(item);return item}).filter(x=>x.valor>0);
+  const anoAtual=new Date().getFullYear(), anoInicial=selectedStartYear();
+  const rawNotes=siafiTable.rows.slice(siafiTable.header+siafiTable.headerRows).filter(r=>r.some(v=>clean(v)!=="")).map((r,ordem)=>{const nota=standardNE(get(r,siafiMap,"nota")), ano=neYear(nota), rap=money(get(r,siafiMap,"rap")), emp=money(get(r,siafiMap,"emp"));return {nota,ano,convenio:clean(get(r,siafiMap,"convenio")),fonte:fonte(get(r,siafiMap,"fonte")),vinculacao:clean(get(r,siafiMap,"vinculacao")),favorecido:favouredName(r,siafiMap),info:clean(get(r,siafiMap,"info")),processo:clean(get(r,siafiMap,"processo")),saldo:ano<anoAtual?rap:emp,ordem};}).filter(x=>x.nota&&x.saldo>0&&x.ano<=anoAtual&&(anoInicial==="all"||x.ano>=Number(anoInicial)));
+  const notes=new Map();for(const n of rawNotes){const old=notes.get(n.nota);if(old)old.saldo+=n.saldo;else notes.set(n.nota,n)}const noteList=[...notes.values()].sort((a,b)=>neYear(a.nota)-neYear(b.nota)||a.ordem-b.ordem);
+  const output=[OUT_HEADERS], log=[["Contrato","Tomador","Valor pendente","Chaves consultadas","InconsistÃªncia"]], used=new Map();let allocations=0;
+  for(const req of requests){let remaining=req.valor, found=false;const candidates=orderCandidates(selectCandidates(req,noteList),req.valor);
+    if(!candidates.length){addLog(log,formatContract(req),clean(req.tomador),remaining,friendlyKeys(req),"Nenhuma Nota de Empenho vinculÃ¡vel: o SIAFI nÃ£o apresentou correspondÃªncia para as chaves indicadas.");continue;}
+    for(const note of candidates){if(remaining<=0.005)break;const current=used.has(note.nota)?used.get(note.nota):note.saldo;if(current<=0)continue;const allocation=Math.min(current,remaining), rp=req.rp3>0?3:2;output.push([formatContract(req),clean(req.uf),clean(req.tomador),"00TI","FNHIS SUB 50","560015","560018",note.nota,note.vinculacao,note.fonte,"D",neYear(note.nota)===2025?2:3,req.valor,rp,allocation,current-allocation]);used.set(note.nota,current-allocation);remaining-=allocation;allocations++;found=true;}
+    if(remaining>0.005)addLog(log,formatContract(req),clean(req.tomador),remaining,friendlyKeys(req),found?"Saldo insuficiente nas Notas de Empenho vinculadas.":"Nenhuma Nota de Empenho com saldo disponÃ­vel.");
   }
+  if(!requests.length)addLog(log,"","",0,"coluna de necessidade financeira",`Nenhuma linha com valor positivo foi identificada na coluna â€œ${dhrTable.headers[dhrMap.necessidade]}â€.`);
+  const textOrder=(a,b)=>String(a??"").localeCompare(String(b??""),"pt-BR",{sensitivity:"base",numeric:true});const orderedOutput=[output[0],...output.slice(1).sort((a,b)=>textOrder(a[1],b[1])||textOrder(a[2],b[2])||textOrder(a[7],b[7]))];
+  const wb=XLSX.utils.book_new(), ws=XLSX.utils.aoa_to_sheet(orderedOutput), sourceWs=siafiBook.Sheets[siafiTable.name];styleTable(ws,OUT_HEADERS,[12,14,15]);XLSX.utils.book_append_sheet(wb,ws,"ajustada CORH");XLSX.utils.book_append_sheet(wb,sourceWs,"SALDOS DE EMPENHO");if(log.length>1){const logWs=XLSX.utils.aoa_to_sheet(log);styleTable(logWs,log[0],[2]);XLSX.utils.book_append_sheet(wb,logWs,"LOG");}
+  XLSX.writeFile(wb,outputName(siafiTable),{cellStyles:true});
+  return {requests:requests.length,notes:noteList.length,allocations,issues:log.length-1,dhrSheet:dhrTable.name,siafiSheet:siafiTable.name,anoInicial};
 }
-function bordasCompletas(ws) {
-  const area = ref(ws);
-  for (let r = area.s.r; r <= area.e.r; r++) for (let c = area.s.c; c <= area.e.c; c++) {
-    const chave = XLSX.utils.encode_cell({ r, c });
-    if (!ws[chave]) ws[chave] = { t: "s", v: "" };
-    ws[chave].s = { ...(ws[chave].s || {}), border: { top: BORDA_FINA, bottom: BORDA_FINA, left: BORDA_FINA, right: BORDA_FINA } };
-  }
-}
+function updateButton(){ $("processButton").disabled=!(FILES.dhr&&FILES.siafi) }
+function pick(type,event){FILES[type]=event.target.files[0]||null;$(type+"Name").textContent=FILES[type]?FILES[type].name:"Selecionar arquivo .xlsx";$("status").textContent=FILES.dhr&&FILES.siafi?"Arquivos anexados. VocÃª jÃ¡ pode gerar a planilha.":"Anexe os dois arquivos para habilitar o processamento.";updateButton()}
+$("dhrFile").addEventListener("change",e=>pick("dhr",e));$("siafiFile").addEventListener("change",e=>pick("siafi",e));
+$("processButton").addEventListener("click",async()=>{try{$("processButton").disabled=true;$("status").textContent="Lendo os arquivos e distribuindo os saldos por Nota de Empenhoâ€¦";const r=await process();const logText=r.issues?` Foram registradas ${r.issues} inconsistÃªncia(s); consulte a aba LOG do arquivo baixado.`:" NÃ£o foram registradas inconsistÃªncias.";const periodo=r.anoInicial==="all"?"todos os anos disponÃ­veis":`de ${r.anoInicial} a ${new Date().getFullYear()}`;$("status").textContent=`Processamento concluÃ­do. O arquivo foi baixado.${logText}`;$("details").hidden=false;$("details").innerHTML=`<h2>Resumo do processamento</h2><ul><li>${r.requests} solicitaÃ§Ã£o(Ãµes) financeira(s) identificada(s) na aba â€œ${r.dhrSheet}â€.</li><li>${r.notes} Nota(s) de Empenho com saldo identificada(s) na aba â€œ${r.siafiSheet}â€, considerando ${periodo}.</li><li>${r.allocations} distribuiÃ§Ã£o(Ãµes) gerada(s) na Planilha de Financeiro Ã  SPOA.</li><li>Para outro ciclo, anexe dois novos arquivos.</li></ul>`;}catch(e){console.error(e);$("status").textContent=`NÃ£o foi possÃ­vel processar: ${e.message}`;}finally{$("processButton").disabled=!(FILES.dhr&&FILES.siafi)}});
 
-function inserirLinha(ws, destino) {
-  const area = ref(ws);
-  for (let r = area.e.r; r >= destino; r--) for (let c = 0; c <= area.e.c; c++) {
-    const de = XLSX.utils.encode_cell({r, c}), para = XLSX.utils.encode_cell({r: r + 1, c});
-    if (ws[de]) ws[para] = clonar(ws[de]); else delete ws[para];
-  }
-  area.e.r++; ws["!ref"] = XLSX.utils.encode_range(area);
-}
-function copiarLinha(ws, origem, destino) {
-  inserirLinha(ws, destino); const area = ref(ws);
-  for (let c = 0; c <= area.e.c; c++) {
-    const de = XLSX.utils.encode_cell({r: origem, c}), para = XLSX.utils.encode_cell({r: destino, c});
-    if (ws[de]) ws[para] = clonar(ws[de]); else delete ws[para];
-  }
-}
-function trocarColunas(ws, colunaA, colunaB) {
-  const area = ref(ws);
-  for (let r = 0; r <= area.e.r; r++) {
-    const a = XLSX.utils.encode_cell({ r, c: colunaA }), b = XLSX.utils.encode_cell({ r, c: colunaB });
-    const temporario = clonar(ws[a]);
-    if (ws[b]) ws[a] = clonar(ws[b]); else delete ws[a];
-    if (temporario) ws[b] = temporario; else delete ws[b];
-  }
-  if (ws["!cols"]) [ws["!cols"][colunaA], ws["!cols"][colunaB]] = [ws["!cols"][colunaB], ws["!cols"][colunaA]];
-}
-function limparEOcultarColuna(ws, coluna) {
-  const area = ref(ws);
-  for (let r = 0; r <= area.e.r; r++) delete ws[XLSX.utils.encode_cell({ r, c: coluna })];
-  if (!ws["!cols"]) ws["!cols"] = [];
-  ws["!cols"][coluna] = { ...(ws["!cols"][coluna] || {}), hidden: true };
-}
-function ocultarColuna(ws, coluna) {
-  if (!ws["!cols"]) ws["!cols"] = [];
-  ws["!cols"][coluna] = { ...(ws["!cols"][coluna] || {}), hidden: true };
-}
-function preencher(ws, r, ate, cor) { for (let c = 0; c <= ate; c++) { const x = cell(ws,r,c) || (ws[XLSX.utils.encode_cell({r,c})] = {t:"s",v:""}); x.s = {...(x.s||{}), fill:{patternType:"solid",fgColor:{rgb:cor}}}; } }
 
-function processar(wb) {
-  if (!wb.SheetNames.includes(CORH) || !wb.SheetNames.includes(SALDOS)) throw new Error("São necessárias as abas 'ajustada CORH' e 'SALDOS DE EMPENHO'.");
-  const corh = wb.Sheets[CORH], saldos = wb.Sheets[SALDOS];
-  [[14,"Saldo utilizado NE"],[15,"Saldo remanescente NE"],[16,"Controle Macro"]].forEach(([c,t]) => { if (!valor(corh,LINHA_CABECALHO_CORH,c)) set(corh,LINHA_CABECALHO_CORH,c,t); });
-  const log = XLSX.utils.aoa_to_sheet([["Linha","Contrato","Município","Valor faltante","Motivo"]]); wb.Sheets.LOG = log; if (!wb.SheetNames.includes("LOG")) wb.SheetNames.push("LOG");
-  const mapa = new Map(); const sr = ref(saldos);
-  for (let r=LINHA_INICIO_SALDOS;r<=sr.e.r;r++) { const contrato=txt(valor(saldos,r,0)), nota=txt(valor(saldos,r,8)); if(!contrato||!nota) continue; const saldoQ=num(valor(saldos,r,16)), saldoO=num(valor(saldos,r,14)), saldo=saldoQ>0?saldoQ:saldoO, ano=anoNota(nota); if(saldo<=0 || ![2025,2026].includes(ano))continue; if(!mapa.has(contrato))mapa.set(contrato,[]); mapa.get(contrato).push({nota,fonte:txt(valor(saldos,r,6)),saldo,ano}); }
-  mapa.forEach(x=>x.sort((a,b)=>a.ano-b.ano)); const restantes=new Map(); let inseridas=0, usados=0, nao=0;
-  for(let r=ref(corh).e.r;r>=LINHA_INICIO_CORH;r--) { const contrato=txt(valor(corh,r,0)); if(!contrato||txt(valor(corh,r,7)))continue; const municipio=txt(valor(corh,r,2)), total=num(valor(corh,r,12)); if(total<=0)continue; const candidatos=mapa.get(contrato); if(!candidatos){preencher(corh,r,15,"FFFF00"); XLSX.utils.sheet_add_aoa(log,[[r+1,contrato,municipio,total,"Contrato não encontrado"]],{origin:-1});nao++;continue;} let restante=total, alocou=false, dest=r;
-    for(const e of candidatos){if(restante<=.00001)break; const saldo=restantes.has(e.nota)?restantes.get(e.nota):e.saldo;if(saldo<=0)continue;const usar=Math.min(restante,saldo);if(alocou){dest++;copiarLinha(corh,r,dest);inseridas++;set(corh,r,16,"");set(corh,dest,16,MARCADOR);}set(corh,dest,7,e.nota.slice(11));set(corh,dest,9,e.fonte);set(corh,dest,11,e.ano>=2026?3:2);set(corh,dest,14,usar,"#,##0.00");set(corh,dest,15,saldo-usar,"#,##0.00");restantes.set(e.nota,saldo-usar);restante-=usar;usados++;alocou=true;}
-    if(alocou&&restante>.01){preencher(corh,r,15,"FFC864");XLSX.utils.sheet_add_aoa(log,[[r+1,contrato,municipio,restante,"Saldo insuficiente"]],{origin:-1});}
-  }
-  // M recebe o Valor distribuído (antiga O) e O conserva o valor original da M.
-  trocarColunas(corh, 12, 14);
-  // Q é apenas controle interno: o conteúdo é removido e a coluna fica oculta no arquivo final.
-  limparEOcultarColuna(corh, 16);
-  set(corh, LINHA_CABECALHO_CORH, 12, "Valor");
-  set(corh, LINHA_CABECALHO_CORH, 14, "Valor total do Contrato");
-  ocultarColuna(corh, 14); // O
-  ocultarColuna(corh, 15); // P
-  estilizarCabecalho(corh, LINHA_CABECALHO_CORH);
-  estilizarCabecalho(saldos, LINHA_INICIO_SALDOS - 1);
-  estilizarCabecalho(log, 0);
-  bordasCompletas(log);
-  return {inseridas,usados,nao,inconsistencias: XLSX.utils.sheet_to_json(log,{header:1}).length - 1};
-}
-async function executar() {
-  try { $("processar").disabled=true;$("status").textContent="Processando no seu navegador…";const dados=await arquivo.arrayBuffer(),wb=XLSX.read(dados,{type:"array",cellStyles:true});const resultado=processar(wb);const avisoLog=resultado.inconsistencias>0?` Foram encontradas ${resultado.inconsistencias} inconsistência(s); consulte a aba LOG do arquivo baixado.`:" Nenhuma inconsistência foi registrada na aba LOG.";const avisoColunas=" Para consultar o Valor total do Contrato e o saldo remanescente da Nota de Empenho, reexiba as colunas O e P no arquivo baixado.";$("status").textContent=`Concluído: ${resultado.inseridas} linha(s) inserida(s), ${resultado.usados} empenho(s) usado(s), ${resultado.nao} ocorrência(s) sem correspondência.${avisoLog}${avisoColunas} Selecione outro arquivo para iniciar um novo ciclo.`;const nome=arquivo.name.replace(/\.xlsx$/i,"")+"_processado.xlsx";XLSX.writeFile(wb,nome,{cellStyles:true});} catch(e) { console.error(e);$("status").textContent=`Erro: ${e.message}`;} finally { arquivo = undefined; $("arquivo").value = ""; $("nomeArquivo").textContent = "Selecionar planilha Excel (.xlsx)"; $("processar").disabled = true; }
-}
