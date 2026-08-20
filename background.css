@@ -1,5 +1,4 @@
 html{background:transparent!important}
-body.shell{min-height:100vh;background:#dcebf1}
-body.shell::before{position:fixed;z-index:-1;inset:0;content:"";background:linear-gradient(135deg,rgba(240,249,251,.72),rgba(229,241,238,.48))}
+body.shell{min-height:100vh;background:#dcebf1 url("assets/hero-financeiro-habitacao.png") center center/cover fixed no-repeat}
+body.shell::before{position:fixed;z-index:-1;inset:0;content:"";background:linear-gradient(135deg,rgba(240,249,251,.18),rgba(229,241,238,.12))}
 body:not(.shell){background:transparent!important}
-
