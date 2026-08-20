@@ -4,49 +4,50 @@ Output:
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Planilha de Financeiro Ã  SPOA | FNHIS Sub 50</title>
-  <meta name="description" content="GeraÃ§Ã£o local da Planilha de Financeiro Ã  SPOA para FNHIS Sub 50.">
-  <link rel="stylesheet" href="styles.css">
+  <title>Planilha de Financeiro à SPOA | FNHIS Sub 50</title>
+  <meta name="description" content="Geração local da Planilha de Financeiro à SPOA para FNHIS Sub 50.">
+  <link rel="stylesheet" href="styles.css?v=15">
+  <link rel="stylesheet" href="background.css?v=1">
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
-<body>
+<body class="shell">
   <main class="shell">
     <header class="hero">
-      <div class="hero-icon" aria-hidden="true">âŒ‚</div>
+      <div class="hero-icon" aria-hidden="true">⌂</div>
       <div>
-        <p class="eyebrow">SNH Â· DPP Â· CGPOH Â· CORH</p>
-        <h1>Planilha de Financeiro Ã  SPOA</h1>
+        <p class="eyebrow">SNH · DPP · CGPOH · CORH</p>
+        <h1>Planilha de Financeiro à SPOA</h1>
         <p class="intro">Distribua os saldos das Notas de Empenho a partir das planilhas do DHR e do SIAFI.</p>
       </div>
     </header>
 
-    <section class="workspace" aria-label="GeraÃ§Ã£o da planilha">
+    <section class="workspace" aria-label="Geração da planilha">
       <div class="section-heading">
         <span class="section-kicker">ETAPA 1</span>
         <h2>Arquivos de origem</h2>
-        <p>Selecione as duas planilhas necessÃ¡rias. O processamento ocorre apenas no seu navegador.</p>
+        <p>Selecione as duas planilhas necessárias. O processamento ocorre apenas no seu navegador.</p>
       </div>
 
-      <section class="uploads" aria-label="Arquivos necessÃ¡rios">
+      <section class="uploads" aria-label="Arquivos necessários">
         <label class="upload-card" for="dhrFile">
           <span class="step">1</span>
-          <span class="upload-copy"><strong>SolicitaÃ§Ã£o de caixa do DHR</strong><small>Instrumento ou convÃªnio, proponente, UF e valor autorizado ou solicitado.</small></span>
+          <span class="upload-copy"><strong>Solicitação de caixa do DHR</strong><small>Instrumento ou convênio, proponente, UF e valor autorizado ou solicitado.</small></span>
           <span class="file-name" id="dhrName">Selecionar planilha do DHR (.xlsx)</span>
           <input id="dhrFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
         </label>
         <label class="upload-card" for="siafiFile">
           <span class="step">2</span>
-          <span class="upload-copy"><strong>Saldos de Empenho do SIAFI</strong><small>Nota de Empenho, fonte, vinculaÃ§Ã£o, favorecido, processo e saldos.</small></span>
+          <span class="upload-copy"><strong>Saldos de Empenho do SIAFI</strong><small>Nota de Empenho, fonte, vinculação, favorecido, processo e saldos.</small></span>
           <span class="file-name" id="siafiName">Selecionar planilha do SIAFI (.xlsx)</span>
           <input id="siafiFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
         </label>
       </section>
 
       <fieldset class="year-filter">
-        <legend>PerÃ­odo das Notas de Empenho</legend>
-        <p>Selecione o primeiro ano a considerar. Para anos anteriores Ã© usado Restos a Pagar; para o ano atual, Despesas Empenhadas a Liquidar.</p>
+        <legend>Período das Notas de Empenho</legend>
+        <p>Selecione o primeiro ano a considerar. Para anos anteriores é usado Restos a Pagar; para o ano atual, Despesas Empenhadas a Liquidar.</p>
         <div class="year-options">
           <label><input type="radio" name="startYear" value="2026"> <span>2026</span></label>
           <label><input type="radio" name="startYear" value="2025" checked> <span>2025</span></label>
@@ -56,22 +57,22 @@ Output:
       </fieldset>
 
       <div class="action-row">
-        <button id="processButton" class="primary" disabled>Gerar Planilha de Financeiro Ã  SPOA <span aria-hidden="true">â†’</span></button>
+        <button id="processButton" class="primary" disabled>Gerar Planilha de Financeiro à SPOA <span aria-hidden="true">→</span></button>
         <p id="status" class="status" aria-live="polite">Anexe os dois arquivos para habilitar o processamento.</p>
       </div>
       <section id="details" class="details" hidden></section>
     </section>
 
     <section class="privacy" aria-label="Privacidade">
-      <span aria-hidden="true">âœ“</span><p><strong>Processamento local e seguro.</strong> Os arquivos sÃ£o tratados somente no seu navegador e nÃ£o sÃ£o enviados para servidor.</p>
+      <span aria-hidden="true">✓</span><p><strong>Processamento local e seguro.</strong> Os arquivos são tratados somente no seu navegador e não são enviados para servidor.</p>
     </section>
 
     <details class="help">
-      <summary>Como os dados sÃ£o reconhecidos?</summary>
-      <p>A aplicaÃ§Ã£o procura sinÃ´nimos de cabeÃ§alhos, ignora acentos e pontuaÃ§Ã£o e valida o formato de valores, UF, propostas, instrumentos e Notas de Empenho. Para o vÃ­nculo, prioriza o instrumento e o nÃºmero do processo.</p>
+      <summary>Como os dados são reconhecidos?</summary>
+      <p>A aplicação procura sinônimos de cabeçalhos, ignora acentos e pontuação e valida o formato de valores, UF, propostas, instrumentos e Notas de Empenho. Para o vínculo, prioriza o instrumento e o número do processo.</p>
     </details>
   </main>
-  <script src="app.js"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>
 
