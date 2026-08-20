@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.3 seconds
-Output:
 # Solicitação de Financeiro SPOA - FNHIS Sub 50
 
 Aplicação estática para uso no navegador. Recebe separadamente a planilha de solicitação de caixa do DHR e a extração de saldos de empenho do SIAFI, produzindo a planilha padronizada para a SPOA.
@@ -27,5 +24,4 @@ Aplicação estática para uso no navegador. Recebe separadamente a planilha de 
 ## Saída
 
 A planilha gerada possui a aba `ajustada CORH`, com o cabeçalho definido pela CORH, e a aba `SALDOS DE EMPENHO`, que conserva a extração do SIAFI. A aba `LOG` é criada somente quando houver inconsistências. Ação, abreviatura e UGs são preenchidas como `00TI`, `FNHIS SUB 50`, `560015` e `560018`.
-
 

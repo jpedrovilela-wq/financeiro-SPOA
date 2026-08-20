@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.3 seconds
-Output:
 /* Processador local de Solicitação de Financeiro SPOA. */
 const $ = (id) => document.getElementById(id);
 const FILES = { dhr: null, siafi: null };
@@ -91,5 +88,4 @@ function updateButton(){ $("processButton").disabled=!(FILES.dhr&&FILES.siafi) }
 function pick(type,event){FILES[type]=event.target.files[0]||null;$(type+"Name").textContent=FILES[type]?FILES[type].name:"Selecionar arquivo .xlsx";$("status").textContent=FILES.dhr&&FILES.siafi?"Arquivos anexados. Você já pode gerar a planilha.":"Anexe os dois arquivos para habilitar o processamento.";updateButton()}
 $("dhrFile").addEventListener("change",e=>pick("dhr",e));$("siafiFile").addEventListener("change",e=>pick("siafi",e));
 $("processButton").addEventListener("click",async()=>{try{$("processButton").disabled=true;$("status").textContent="Lendo os arquivos e distribuindo os saldos por Nota de Empenho…";const r=await process();const logText=r.issues?` Foram registradas ${r.issues} inconsistência(s); consulte a aba LOG do arquivo baixado.`:" Não foram registradas inconsistências.";const periodo=r.anoInicial==="all"?"todos os anos disponíveis":`de ${r.anoInicial} a ${new Date().getFullYear()}`;$("status").textContent=`Processamento concluído. O arquivo foi baixado.${logText}`;$("details").hidden=false;$("details").innerHTML=`<h2>Resumo do processamento</h2><ul><li>${r.requests} solicitação(ões) financeira(s) identificada(s) na aba “${r.dhrSheet}”.</li><li>${r.notes} Nota(s) de Empenho com saldo identificada(s) na aba “${r.siafiSheet}”, considerando ${periodo}.</li><li>${r.allocations} distribuição(ões) gerada(s) na Planilha de Financeiro à SPOA.</li><li>Para outro ciclo, anexe dois novos arquivos.</li></ul>`;}catch(e){console.error(e);$("status").textContent=`Não foi possível processar: ${e.message}`;}finally{$("processButton").disabled=!(FILES.dhr&&FILES.siafi)}});
-
 
