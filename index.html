@@ -13,49 +13,62 @@ Output:
 </head>
 <body>
   <main class="shell">
-    <header>
-      <p class="eyebrow">SNH / DPP / CGPOH / CORH</p>
-      <h1>Planilha de Financeiro Ã  SPOA</h1>
-      <p class="intro">Envie as duas planilhas de origem. A aplicaÃ§Ã£o identifica os campos mesmo quando a ordem ou o texto do cabeÃ§alho varia e gera a planilha padronizada para a SPOA.</p>
+    <header class="hero">
+      <div class="hero-icon" aria-hidden="true">âŒ‚</div>
+      <div>
+        <p class="eyebrow">SNH Â· DPP Â· CGPOH Â· CORH</p>
+        <h1>Planilha de Financeiro Ã  SPOA</h1>
+        <p class="intro">Distribua os saldos das Notas de Empenho a partir das planilhas do DHR e do SIAFI.</p>
+      </div>
     </header>
 
-    <section class="privacy" aria-label="Privacidade">
-      <strong>Processamento local.</strong> Os arquivos sÃ£o tratados somente no seu navegador e nÃ£o sÃ£o enviados para servidor.
-    </section>
-
-    <section class="uploads" aria-label="Arquivos necessÃ¡rios">
-      <label class="upload-card" for="dhrFile">
-        <span class="step">1</span>
-        <span class="upload-copy"><strong>Planilha de solicitaÃ§Ã£o de caixa do DHR</strong><small>Inclua instrumento/convÃªnio, proponente, UF e o valor autorizado ou solicitado.</small></span>
-        <span class="file-name" id="dhrName">Selecionar arquivo .xlsx</span>
-        <input id="dhrFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-      </label>
-      <label class="upload-card" for="siafiFile">
-        <span class="step">2</span>
-        <span class="upload-copy"><strong>Saldos de Empenho extraÃ­dos do SIAFI</strong><small>Inclua Nota de Empenho, Fonte, VinculaÃ§Ã£o e os saldos de empenho.</small></span>
-        <span class="file-name" id="siafiName">Selecionar arquivo .xlsx</span>
-        <input id="siafiFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-      </label>
-    </section>
-
-    <fieldset class="year-filter">
-      <legend>A partir de qual ano considerar as Notas de Empenho?</legend>
-      <p>Para anos anteriores, usa-se Restos a Pagar; para o ano atual, Despesas Empenhadas a Liquidar.</p>
-      <div class="year-options">
-        <label><input type="radio" name="startYear" value="2026"> <span>2026</span></label>
-        <label><input type="radio" name="startYear" value="2025" checked> <span>2025</span></label>
-        <label><input type="radio" name="startYear" value="2024"> <span>2024</span></label>
-        <label><input type="radio" name="startYear" value="all"> <span>Todos</span></label>
+    <section class="workspace" aria-label="GeraÃ§Ã£o da planilha">
+      <div class="section-heading">
+        <span class="section-kicker">ETAPA 1</span>
+        <h2>Arquivos de origem</h2>
+        <p>Selecione as duas planilhas necessÃ¡rias. O processamento ocorre apenas no seu navegador.</p>
       </div>
-    </fieldset>
 
-    <button id="processButton" class="primary" disabled>Gerar Planilha de Financeiro Ã  SPOA</button>
-    <p id="status" class="status" aria-live="polite">Anexe os dois arquivos para habilitar o processamento.</p>
-    <section id="details" class="details" hidden></section>
+      <section class="uploads" aria-label="Arquivos necessÃ¡rios">
+        <label class="upload-card" for="dhrFile">
+          <span class="step">1</span>
+          <span class="upload-copy"><strong>SolicitaÃ§Ã£o de caixa do DHR</strong><small>Instrumento ou convÃªnio, proponente, UF e valor autorizado ou solicitado.</small></span>
+          <span class="file-name" id="dhrName">Selecionar planilha do DHR (.xlsx)</span>
+          <input id="dhrFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+        </label>
+        <label class="upload-card" for="siafiFile">
+          <span class="step">2</span>
+          <span class="upload-copy"><strong>Saldos de Empenho do SIAFI</strong><small>Nota de Empenho, fonte, vinculaÃ§Ã£o, favorecido, processo e saldos.</small></span>
+          <span class="file-name" id="siafiName">Selecionar planilha do SIAFI (.xlsx)</span>
+          <input id="siafiFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+        </label>
+      </section>
+
+      <fieldset class="year-filter">
+        <legend>PerÃ­odo das Notas de Empenho</legend>
+        <p>Selecione o primeiro ano a considerar. Para anos anteriores Ã© usado Restos a Pagar; para o ano atual, Despesas Empenhadas a Liquidar.</p>
+        <div class="year-options">
+          <label><input type="radio" name="startYear" value="2026"> <span>2026</span></label>
+          <label><input type="radio" name="startYear" value="2025" checked> <span>2025</span></label>
+          <label><input type="radio" name="startYear" value="2024"> <span>2024</span></label>
+          <label><input type="radio" name="startYear" value="all"> <span>Todos</span></label>
+        </div>
+      </fieldset>
+
+      <div class="action-row">
+        <button id="processButton" class="primary" disabled>Gerar Planilha de Financeiro Ã  SPOA <span aria-hidden="true">â†’</span></button>
+        <p id="status" class="status" aria-live="polite">Anexe os dois arquivos para habilitar o processamento.</p>
+      </div>
+      <section id="details" class="details" hidden></section>
+    </section>
+
+    <section class="privacy" aria-label="Privacidade">
+      <span aria-hidden="true">âœ“</span><p><strong>Processamento local e seguro.</strong> Os arquivos sÃ£o tratados somente no seu navegador e nÃ£o sÃ£o enviados para servidor.</p>
+    </section>
 
     <details class="help">
       <summary>Como os dados sÃ£o reconhecidos?</summary>
-      <p>A aplicaÃ§Ã£o procura sinÃ´nimos de cabeÃ§alhos, ignora acentos e pontuaÃ§Ã£o e valida o formato de valores, UF, propostas, contratos e notas de empenho. Para o contrato, prioriza o <em>ConvÃªnio SIAFI</em>. Para notas de anos anteriores usa Restos a Pagar; para notas do ano atual, Despesas Empenhadas a Liquidar.</p>
+      <p>A aplicaÃ§Ã£o procura sinÃ´nimos de cabeÃ§alhos, ignora acentos e pontuaÃ§Ã£o e valida o formato de valores, UF, propostas, instrumentos e Notas de Empenho. Para o vÃ­nculo, prioriza o instrumento e o nÃºmero do processo.</p>
     </details>
   </main>
   <script src="app.js"></script>
